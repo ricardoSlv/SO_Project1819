@@ -172,9 +172,10 @@ int svRun(){
     int readStatus;
     char* pipeStr=malloc(8);
 
-    while(readStatus!=0){
+    while(1){
     printf("readstatus=%d ",readStatus);
     readStatus=read(fdpp,args,24);
+    if (readStatus==0){sleep(5);}
     printf("%d\n",readStatus);
     int fdpc;
 
@@ -196,6 +197,7 @@ int svRun(){
     }
   
 
+    //remove("serverPipe");
     return 0;
 
 }

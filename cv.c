@@ -125,16 +125,19 @@ int cvRun(){
    int pipefd;
    char*formInput;
    char*output=malloc(16);
-   char* input=malloc(sizeof(char)*100);
+   char* input=malloc(sizeof(char)*20);
    int readnr;
+   int n;
    write(0,"Insira o input (->s artigos difStock ou  ->i artigo)\n",54);
 
-   while(input[0]!='q'){   
-   readnr=read(0,input,100);
+   while(input[0]!='q'){  
+   n=1;    
+   readnr=read(0,input,20);
    puts(input);
    input[16]='\0';
    input[17]=' ';
    input[18]=' ';
+   input[19]='\n';
    
     if(input[0]=='s'){ 
      if(validateInputS(&input[2])==0){
@@ -146,7 +149,7 @@ int cvRun(){
      puts(formInput);
      write(fdw,formInput,24);
      pipefd=openPipeCv(PipeID);
-     read(pipefd,output,16);
+     while(n>0){n=read(pipefd,output,16);}
      close(pipefd);
      puts(output);}
     }
