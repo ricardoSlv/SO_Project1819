@@ -11,7 +11,9 @@
 #define artIndSize 6
 #define priceSize 7
 #define nameIndSize 8
-#define artSize 24 
+#define artSize 12 
+
+typedef struct produto Produto;
 
 int openArtigos();
 
@@ -23,4 +25,4 @@ float getPrice(int,int);
 
 void seekPriceByte(int,int);
 
-int maRun(int , char*);
+int maRun();
