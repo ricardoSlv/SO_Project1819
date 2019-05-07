@@ -10,12 +10,26 @@ struct produto{
 };
 
 
+int readline(int fd,char*inpt){
+  char c='O';
+  int i;
+  for(i=0;c!='\n'&&read(fd,&c,1);i++){
+     inpt[i]=c;
+  }
+  inpt[i]='\0';
+  return i;
+}
+
 int openArtigos(){
      return open("artigos.txt",O_RDWR|O_CREAT,0644);
 }
 
 int openStrings(){
     return open("strings.txt",O_RDWR|O_CREAT,0644);
+}
+
+int openStrings2(){
+    return open("strings2.txt",O_RDWR|O_CREAT,0644);
 }
 
 int checkValidProd(int fda, int ind){
@@ -47,7 +61,7 @@ void formatPrice(char* str,int size){
 }
 
 
-int addString(int fp,char* str){
+static int addString(int fp,char* str){
   
   long tamanho=lseek(fp,0, SEEK_END);
   
@@ -60,44 +74,17 @@ int addString(int fp,char* str){
 
 int addArtigo(int fpa,int fps,char*strinput){
   char*token;
-
   long tamanho=lseek(fpa,0, SEEK_END);
   int numArts=(tamanho/artSize)+1;
   struct produto prd;
-  
 
-  //Codigo de artigo
-  //char* strn=malloc(sizeof(char)*(artIndSize+1));
-  //formatStr(strn,artIndSize,numArts);
-  
-  //write(fpa,strn,artIndSize);
-  //free(strn);
-  //write(fpa," ",1);
-
-  //Nome
   token = strtok(strinput," ");
   int nr=addString(fps,token);
   
-  //char*strname=malloc(sizeof(char)*(nameIndSize+1));
-  //formatStr(strname,nameIndSize,nr);
-
-  //Preço
-  //validarpreço
   token = strtok(NULL,"\n");
   float preco=atof(token);
   
-  //char*strpr=malloc(priceSize+1);
-  //strcpy(strpr,token);
-  //formatPrice(strpr,priceSize);
-  //write(fpa,strpr,priceSize);
-  //write(fpa," ",1);
-  //free(strpr);
-  
-  //Escrever indice string
-  //write(fpa,strname,strlen(strname));
-  //write(fpa,"\n",1);
-  //free(strname);
-  if(numArts&&preco&&nr!=0){
+  if((numArts&&preco&&nr>=0)!=0){
   prd.codigo=numArts;
   prd.price=preco;
   prd.namezone=nr;
@@ -106,10 +93,11 @@ int addArtigo(int fpa,int fps,char*strinput){
   write(fpa,&prd,sz);
   lseek(fpa,-sz,SEEK_CUR);
   read(fpa,&prd,sz);
-  printf("%d,%f,%d,%d\n",prd.codigo,prd.price,prd.namezone,sz);
-  write(0,"sucess\n",8);
+  printf("%d,%f,%d\n",prd.codigo,prd.price,prd.namezone);
+  write(0,"Sucess\n",8);
   return 1;
   }
+  
   else{
     write(0,"Input inválido\n",17);
     return 0;
@@ -131,7 +119,27 @@ void seekPriceByte(int fpa,int ind){
   char*strNameInd=malloc(sizeof(char)*nameIndSize);
 }
 
+void compactador(int fda,int fdstrings){
+    puts("compacting");
+    struct produto prod;
+    char*name=malloc(80);
+    int pointer=0;
+    int readnr=0;
+    int fdstrings2=openStrings2();
+    lseek(fdstrings,0,SEEK_SET);
+    lseek(fda,0,SEEK_SET);
 
+    while(read(fda,&prod,12)!=0){
+      lseek(fdstrings,prod.namezone,SEEK_SET);
+      readnr=readline(fdstrings,name);
+      printf("read %d, prodnamezone %d\n",readnr,prod.namezone);
+      write(fdstrings2,name,readnr);
+      //prod.namezone=pointer;
+      //lseek(fda,-12,SEEK_CUR);
+      //write(fda,&prod,12);
+      pointer=pointer+readnr;
+    }
+}
 
 float getPrice(int fpa,int ind){
    
@@ -142,9 +150,10 @@ float getPrice(int fpa,int ind){
    //free(strNameInd);
    lseek(fpa,(ind-1)*artSize,SEEK_SET);
    struct produto prd;
-   read(fpa,&prd,artSize); 
+   int rdn=read(fpa,&prd,artSize); 
+   if (rdn==0){prd.price=-1;}
    
-   printf("%f\n",prd.price);
+   //printf("%f\n",prd.price);
   return prd.price;
 }
 
@@ -208,6 +217,7 @@ void changePrice(int fpa, char*input){
 
     token=strtok(NULL,"\n");
     float prc=atof(token);
+    if(prc>0){
     printf("preco=%s %f\n",token,prc);
     lseek(fpa,-artSize,SEEK_CUR);
     prd.price=prc;
@@ -216,6 +226,10 @@ void changePrice(int fpa, char*input){
     lseek(fpa,-artSize,SEEK_CUR);
     read(fpa,&prd,artSize);
     printf("Depois:%d,%f,%d\n",prd.codigo,prd.price,prd.namezone);
+    }
+    else{
+      write(0,"Produto não válido\n",21);
+    }
     }
     else{
       write(0,"Produto não válido\n",21);
@@ -245,6 +259,12 @@ int maRun(){
  }
  else if (input[0]=='q'){
    write(0,"Quit input\n",12);
+ }
+ else if (input[0]=='c'){
+   compactador(fpArts, fpStrings);
+ }
+ else{
+   write(0,"Input inválido\n",17);
  }
  }
 

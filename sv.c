@@ -1,4 +1,5 @@
 #include "sv.h"
+#include <signal.h>
 
 //3 args, s-sales,r- reposição de stock, i-info, c- price change(inativo);
 // to do existe e fore de stock e não existe ;
@@ -21,16 +22,21 @@ typedef struct serveroutput{
 
 };
 
-int readline(int fd,char*inpt){
-  char c;
-  int i;
-  for(i=0;c!='\n';i++){
-     read(fd,&c,1);
-     inpt[i]=c;
-  }
-  inpt[i]='\0';
-  return i;
-}
+typedef struct sale{
+  int artnr;
+  int units;
+  float price;
+}Venda;
+
+typedef struct artprc{
+  int artnr;
+  float prc;
+}ArtPrc;
+
+typedef struct cachePrc{
+  int ind;
+  ArtPrc prices[cacheSz];
+}Cacheprc;
 
 
 int openStocks(){
@@ -53,7 +59,6 @@ char* getPipeID(int tme){
 
     char*pipeID=malloc(8);
     sprintf(pipeID,"%d",tme);
-    printf("info %ld output %ld\n",sizeof(struct serverinfo),sizeof(struct serveroutput));
   
   return pipeID;
 }
@@ -68,17 +73,6 @@ void printOut(SvOut* svout){
   printf("Runstat:%c, Stock:%d, Price:%f\n",svout->runstat,svout->stock,svout->price);
 }
 
-
-
-/*int getPipeStr(SvInfo args,char*strNr){
-  int retVl=0;
-  int nr= atoi(args.clientID);
-  if (nr!=0){
-    sprintf(strNr,"%d",nr);
-  }
-  return retVl;
-}*/
-
 int getStockPointer(int fdstk,int artNr){
    int offset=(artNr-1)*(sizeof(int));
    lseek(fdstk,offset,SEEK_SET);
@@ -91,6 +85,71 @@ void sendOutPut(char* pipeStr, char*output){
 
 }
 
+void runAg(){
+   
+   Venda sale;
+   char*stringsale=malloc(40);
+   int sz;
+   int fds = openSales();
+   int fdsa=open("vendasAg.txt",O_RDWR|O_CREAT,0644);
+
+   while(read(fds,&sale,12)!=0){
+       puts("li 1");
+       
+        sprintf(stringsale,"%d %d %f\n",sale.artnr,sale.units,sale.price);
+        sz=strlen(stringsale);
+        write(fdsa,stringsale,sz); 
+   }
+   sleep(15);
+     remove("vendasAg.txt"); 
+
+   
+   if(fork()==0){
+     dup2(fds,0);
+     execlp("./ag","./exec","c",(char *) NULL);
+   }
+}
+
+float Cached(int artNr,Cacheprc* prodlist){
+    float r=0;
+    puts("searching cache");
+    for(int i=0;i<20;i++){
+       if(prodlist->prices[i].artnr==artNr){
+         r=prodlist->prices[i].prc;
+         printf("cached r=%f\n",r);
+         break;
+       }
+    }
+   return r; 
+}
+
+void cacheAdd(ArtPrc prd,Cacheprc* prodlist){
+  
+  prodlist->prices[prodlist->ind]=prd;
+  prodlist->ind=(prodlist->ind+1)%cacheSz;
+}
+
+float seekPrice(int fpa,int artNr,Cacheprc* prodlist){
+    float prc;
+    float cached=Cached(artNr,prodlist);
+    if(cached){
+      prc=cached;
+    }
+    else
+    {
+      cached=getPrice(fpa,artNr);
+       if(cached>0){
+         ArtPrc prd;
+         prd.artnr=artNr;
+         prd.prc=cached;
+         printf("im adding %d, %f\n",artNr,cached);
+         cacheAdd(prd,prodlist);
+       }
+    }
+    return cached;
+    
+}
+
 void formatOutput(char*strS,char*strP,char*output){
   output[0]='i';
   strcpy(&output[1],strS);
@@ -99,113 +158,77 @@ void formatOutput(char*strS,char*strP,char*output){
 
 void saleWrite(int fda,int fdsales,SvInfo args){
     
+    struct sale venda;
     float prc=getPrice(fda,args.artNr);
-    prc=prc*args.units;
-    char*strpr=malloc(priceSize+1);
-    
-    lseek(fdsales,0,SEEK_END);
-    write(fdsales,&args.artNr,4);
-    write(fdsales,&args.units,4);
-    write(fdsales,&prc,4);
-    //args[artIndSize ]=' ';
-    //write(fdsales,args,artIndSize+1);
-    
-    //sprintf(strpr,"%d",unitch);
-    //formatStr(strpr,StockSize-1,unitch);
-    //strpr[StockSize-1]=' ';
-    //write(fdsales,strpr,StockSize);
-    
-    //sprintf(strpr,"%.2f",prc);
-    //formatPrice(strpr,priceSize);
-    //strpr[priceSize]='\n';
-    //puts(strpr);
-    //write(fdsales,strpr,priceSize+1);
+    if(args.units>0){prc=0;}
+    else{prc=prc*args.units;}
+    venda.artnr=args.artNr;
+    venda.units=args.units;
+    venda.price=prc;
 
+    lseek(fdsales,0,SEEK_END);
+    write(fdsales,&venda,sizeof(venda));
 }
 
-int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales){
+int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales,Cacheprc* prodlist){
     int readStatus;
     SvOut out;
-    puts("running sale");
-    //char*token=malloc(8);
-    
-      //token=strtok(&args[1]," ");
-      //puts(args);
-      //int artNr=atoi(token);
-      
-      if(args.artNr&&args.units){
-          //token=strtok(NULL," ");
-          //puts(token);
-        //puts(args);
-        
-        //int i;
-        //for(i=0;token[i]=='0';i++);
-        
-        //int unitChange=atoi(&token[i]);
-        //printf("%d\n",unitChange);
-          
+    //puts("running sale");
+
+    if(seekPrice(fda,args.artNr,prodlist)<=0){
+      out.runstat='e';
+      write(fdpc,&out,outSize);
+      return 0;
+    }
+
+    else if(args.artNr&&args.units){
+
           getStockPointer(fdstk,args.artNr);
           int uniCurr;
           int readStatus=read(fdstk,&uniCurr,StockSize);
-          //puts(units);
-          printf("readstatus=%d\n",readStatus);
           
           if(readStatus==0){
-            puts("readstatus==0");
-               if(args.units<0){
-                 //write(fdpc,"ef             ",16);
+            if(args.units<0){
                  out.runstat='e';
-                 //return 0;
-                 }
+            }
                  
              else{
-               //printf("d\n");
-             //write(fdpc,"s             ",16);
              out.runstat='s';
-             //formatStr(units,StockSize,args.units);
-             //puts(units);
              getStockPointer(fdstk,args.artNr);
              write(fdstk,&args.units,4);
              }
-           }
+          }
           
           
           else{
-            puts("changing sale");
-            printf("unicurr, %d\n",uniCurr);
             if((args.units+uniCurr)<0){
-                //write(fdpc,"ef             ",16);
                 out.runstat='e';
             }
             else{
-              if(args.units<0){
-              
-               saleWrite(fda,fdsales,args);
-              
-             }
-            
-             //write(fdpc,"s              ",16);
+
+             saleWrite(fda,fdsales,args);
              out.runstat='s';
             
              uniCurr=uniCurr+args.units;
-             //formatStr(units,StockSize-1,uniCurr);
-             //units[6]='\n';
              getStockPointer(fdstk,args.artNr);
              write(fdstk,&uniCurr,4);
              out.stock=uniCurr;
-             //write(fdstk,units,StockSize);
             }
-           }
-           write(fdpc,&out,outSize);
-           printOut(&out);
-        }
-        else{
-          out.runstat='e';
-          write(fdpc,&out,outSize);
-        }
-      }
+          }
 
-int runInfo(int fpa, int fpstk,int fdpc,SvInfo args){
+      write(fdpc,&out,outSize);
+      printOut(&out);
+    }
+    
+    else{
+     out.runstat='e';
+     write(fdpc,&out,outSize);
+     printOut(&out);
+    }
+      
+}
+
+int runInfo(int fpa, int fpstk,int fdpc,SvInfo args,Cacheprc* prodlist){
    //strtok(&args[1]," ");
    //int artNr=atoi(&args[1]);
    SvOut out;
@@ -218,77 +241,76 @@ int runInfo(int fpa, int fpstk,int fdpc,SvInfo args){
    //strP[priceSize]='\0';
 
    int rd=read(fpstk,&stk,StockSize);
-   printf("read= %d, stk= %d\n",rd,stk);
-   if (rd==0||stk==0){out.runstat='e';}
+   //printf("read= %d, stk= %d\n",rd,stk);
+  
+   if (rd==0){stk==0;}
    
-   else{
-    puts("getting price");
-    prc=getPrice(fpa,args.artNr);
+    //puts("getting price");
+    prc=seekPrice(fpa,args.artNr,prodlist);
     
     
-    if (prc==0){
-      out.runstat='e';
-      }
+    if (prc<=0){out.runstat='e';}
+    
     else{
-     //char*output=malloc(17);
-     //formatOutput(strS,strP,output);
-     //puts(output);
-     //int r=write(fdpc,output,16);
-     //printf("%d\n",r);
      out.price=prc;
      out.runstat='i';
      out.stock=stk;
-     
-     //free(strP);
-     }
     }
+
     int w= write(fdpc,&out,outSize);
-    printf("could write %d\n",w);
     printOut(&out);
 }
 
+void ShutdownRun(){
+  remove("serverPipe");
+  puts("exiting");
+  exit(1);
+}
+
 int svRun(){
+   
+    signal(SIGINT,ShutdownRun);
+    signal(SIGTERM,ShutdownRun);
+
     mkfifo("serverPipe",0600);
     int fdstk=openStocks();
     int fdsales=openSales();
     int fda=openArtigos();
     
     int fdpp=open("serverPipe",O_RDONLY);
-    //char*args=malloc(25);
     int sz=sizeof(struct serverinfo);
     SvInfo args;
     int readStatus;
     char* pipeStr;
     int fdpc;
+    Cacheprc* prodlist=malloc(sizeof(struct cachePrc));
+    prodlist->ind=0;
 
-    while(1){
-    printf("readstatus=%d ",readStatus);
+  while(1){
     readStatus=read(fdpp,&args,sz);
-    if (readStatus==0){sleep(5);}
-    printf("%d\n",readStatus);
     
-
-    if(readStatus!=0){
-     //printf("%s\n",args);
+    if (readStatus==0){
+      write(1,"Server sleeping\n",17);
+      sleep(5);
+      }
+    
+    else{
      printInfo(&args); 
-      
-     //getPipeStr(args,pipeStr);
+    
      pipeStr=getPipeID(args.clientID);
-     puts(pipeStr);
      fdpc = openPipeSv(pipeStr); 
-
+     
      if(args.action=='s'){
-      runSale(args,fdstk,fdpc,fda,fdsales);
+      runSale(args,fdstk,fdpc,fda,fdsales,prodlist);
       }
      else if(args.action=='i'){
-      runInfo(fda,fdstk,fdpc,args);
+      runInfo(fda,fdstk,fdpc,args,prodlist);
       }
+      
      close(fdpc);
     }
-    }
-  
-
-    //remove("serverPipe");
+  }
+    
     return 0;
 
 }
