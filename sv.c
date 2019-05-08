@@ -73,6 +73,10 @@ void printOut(SvOut* svout){
   printf("Runstat:%c, Stock:%d, Price:%f\n",svout->runstat,svout->stock,svout->price);
 }
 
+void printSale(struct sale vnd){
+  printf("Art %d Units %d Price %.2f\n",vnd.artnr,vnd.units,vnd.price);
+}
+
 int getStockPointer(int fdstk,int artNr){
    int offset=(artNr-1)*(sizeof(int));
    lseek(fdstk,offset,SEEK_SET);
@@ -89,24 +93,28 @@ void runAg(){
    
    Venda sale;
    char*stringsale=malloc(40);
-   int sz;
+   int sz;int lastBag;
    int fds = openSales();
    int fdsa=open("vendasAg.txt",O_RDWR|O_CREAT,0644);
+   int fdinf=open("Infos.txt",O_RDWR|O_CREAT,0644);
+   int rdstt=read(fdinf,&lastBag,4);
+   if(rdstt==0){lastBag=0;}
+   sz=lseek(fds,0,SEEK_END);
+   lseek(fds,lastBag,SEEK_SET);
+   lseek(fdinf,0,SEEK_SET);
+   write(fdinf,&sz,4);
+
 
    while(read(fds,&sale,12)!=0){
+       printSale(sale);
        puts("li 1");
-       
-        sprintf(stringsale,"%d %d %f\n",sale.artnr,sale.units,sale.price);
-        sz=strlen(stringsale);
-        write(fdsa,stringsale,sz); 
+        write(fdsa,&sale,12);
    }
-   sleep(15);
-     remove("vendasAg.txt"); 
+   close(fdsa);
 
-   
    if(fork()==0){
      dup2(fds,0);
-     execlp("./ag","./exec","c",(char *) NULL);
+     execlp("./ag","./ag","vendasAg.txt",(char *) NULL);
    }
 }
 
@@ -150,6 +158,17 @@ float seekPrice(int fpa,int artNr,Cacheprc* prodlist){
     
 }
 
+void updatePrice(int fpa,Cacheprc* prodlist, SvInfo args){
+   float prc=getPrice(fpa,args.artNr);
+   for (int i=0;i<cacheSz;i++){
+     if(prodlist->prices[i].artnr==args.artNr){
+       prodlist->prices[i].prc=prc;
+       break;
+     }
+   }
+}
+
+
 void formatOutput(char*strS,char*strP,char*output){
   output[0]='i';
   strcpy(&output[1],strS);
@@ -161,7 +180,7 @@ void saleWrite(int fda,int fdsales,SvInfo args){
     struct sale venda;
     float prc=getPrice(fda,args.artNr);
     if(args.units>0){prc=0;}
-    else{prc=prc*args.units;}
+    else{prc=prc*args.units*-1;}
     venda.artnr=args.artNr;
     venda.units=args.units;
     venda.price=prc;
@@ -229,23 +248,15 @@ int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales,Cacheprc* prodlis
 }
 
 int runInfo(int fpa, int fpstk,int fdpc,SvInfo args,Cacheprc* prodlist){
-   //strtok(&args[1]," ");
-   //int artNr=atoi(&args[1]);
    SvOut out;
    getStockPointer(fpstk,args.artNr);
-   //seekPriceByte(fpa,artNr);
    int stk;
    float prc;
 
-   //char* strP = malloc(priceSize+1);
-   //strP[priceSize]='\0';
-
    int rd=read(fpstk,&stk,StockSize);
-   //printf("read= %d, stk= %d\n",rd,stk);
-  
+   
    if (rd==0){stk==0;}
    
-    //puts("getting price");
     prc=seekPrice(fpa,args.artNr,prodlist);
     
     
@@ -293,6 +304,14 @@ int svRun(){
       write(1,"Server sleeping\n",17);
       sleep(5);
       }
+    else if(args.action=='p'){
+      write(1,"Changing price\n",16);
+      updatePrice(fda,prodlist,args);
+     } 
+     else if(args.action=='a'){
+       write(1,"Running Ag\n",12);
+       runAg();
+     }  
     
     else{
      printInfo(&args); 

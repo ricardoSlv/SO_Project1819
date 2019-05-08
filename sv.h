@@ -9,6 +9,7 @@
 typedef struct serverinfo SvInfo;
 typedef struct serveroutput SvOut;
 typedef struct cachePrc Cacheprc;
+typedef struct sale Venda;
 
 int svRun();
 
@@ -23,6 +24,8 @@ char* getPipeID(int);
 void printInfo(SvInfo*);
 
 void printOut(SvOut*);
+
+void printSale(struct sale);
 
 
 

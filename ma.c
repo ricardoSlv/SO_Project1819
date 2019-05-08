@@ -9,6 +9,16 @@ struct produto{
   int namezone;
 };
 
+typedef struct  serverinfo
+{
+  char action;
+  int artNr;
+  int units;
+  int clientID;
+
+};
+
+
 
 int readline(int fd,char*inpt){
   char c='O';
@@ -193,47 +203,64 @@ void changeName(int fpa,int fps,char* input){
     else{
       write(0,"Produto não válido\n",21);
     }
-    //char*c=malloc(nameIndSize+1);
-    //formatStr(c,nameIndSize,nr);
-    //write(fpa,c,strlen(c));
-    //free(c);
 
 }
 
 void changePrice(int fpa, char*input){
-   char*token;
+  char*token;
     
-    token=strtok(input," ");
-    int ind=atoi(token);
-    //int nb=seekNameByte(fpa,ind);
-    //Não passar do fim
+  token=strtok(input," ");
+  int ind=atoi(token);
+    
     if(checkValidProd(fpa,ind)){
-    lseek(fpa,(ind-1)*(artSize),SEEK_SET);
-    
-    struct produto prd;
-    read(fpa,&prd,artSize);
-    printf("Antes:%d,%f,%d\n",prd.codigo,prd.price,prd.namezone);
+      lseek(fpa,(ind-1)*(artSize),SEEK_SET);
+     
+      struct produto prd;
+      read(fpa,&prd,artSize);
+      printf("Antes:%d,%f,%d\n",prd.codigo,prd.price,prd.namezone);
     
 
-    token=strtok(NULL,"\n");
-    float prc=atof(token);
-    if(prc>0){
-    printf("preco=%s %f\n",token,prc);
-    lseek(fpa,-artSize,SEEK_CUR);
-    prd.price=prc;
+      token=strtok(NULL,"\n");
+      float prc=atof(token);
+      
+      if(prc>0){
+        printf("preco=%s %f\n",token,prc);
+        lseek(fpa,-artSize,SEEK_CUR);
+        prd.price=prc;
     
-    write(fpa,&prd,artSize);
-    lseek(fpa,-artSize,SEEK_CUR);
-    read(fpa,&prd,artSize);
-    printf("Depois:%d,%f,%d\n",prd.codigo,prd.price,prd.namezone);
+        write(fpa,&prd,artSize);
+        lseek(fpa,-artSize,SEEK_CUR);
+        read(fpa,&prd,artSize);
+        printf("Depois:%d,%f,%d\n",prd.codigo,prd.price,prd.namezone);
+        int fdpp=open("serverPipe",O_WRONLY);
+        if(fdpp>0){
+         struct serverinfo args;
+         args.action='p';args.artNr=prd.codigo;
+         write(fdpp,&args,16);
+         close(fdpp);
+        }
+      }
+      else{
+        write(0,"Produto não válido\n",21);
+      }
     }
     else{
       write(0,"Produto não válido\n",21);
     }
-    }
-    else{
-      write(0,"Produto não válido\n",21);
-    }
+}
+
+void sendAg(){
+   int fdpp=open("serverPipe",O_WRONLY);
+        if(fdpp>0){
+         struct serverinfo args;
+         args.action='a';
+         write(fdpp,&args,16);
+         close(fdpp);
+         write(1,"Signal Sent\n",13);
+        }
+        else{
+          write(1,"Couldn't send signal, server may be down\n",42);
+        }
 }
 
 
@@ -262,6 +289,9 @@ int maRun(){
  }
  else if (input[0]=='c'){
    compactador(fpArts, fpStrings);
+ }
+ else if (input[0]=='a'){
+   sendAg();
  }
  else{
    write(0,"Input inválido\n",17);
