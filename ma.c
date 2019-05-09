@@ -142,22 +142,26 @@ void compactador(int fda,int fdstrings){
     while(read(fda,&prod,12)!=0){
       lseek(fdstrings,prod.namezone,SEEK_SET);
       readnr=readline(fdstrings,name);
-      printf("read %d, prodnamezone %d\n",readnr,prod.namezone);
+      printf("read %d, prodnamezone %d,name %s",readnr,prod.namezone,name);
       write(fdstrings2,name,readnr);
-      //prod.namezone=pointer;
-      //lseek(fda,-12,SEEK_CUR);
-      //write(fda,&prod,12);
+      prod.namezone=pointer;
+      lseek(fda,-12,SEEK_CUR);
+      write(fda,&prod,12);
       pointer=pointer+readnr;
     }
+    lseek(fdstrings,0,SEEK_SET);
+    truncate("strings.txt",1);
+    lseek(fdstrings2,0,SEEK_SET);
+    int rdnr=read(fdstrings2,name,80);
+    while(rdnr){
+    write(fdstrings,name,rdnr);
+    rdnr=read(fdstrings2,name,80);
+    }
+    remove("strings2.txt");
 }
 
 float getPrice(int fpa,int ind){
    
-   //seekPriceByte(fpa,ind);
-   //char*strNameInd=malloc(sizeof(char)*nameIndSize);
-   //read(fpa,strNameInd,nameIndSize);
-   //float prc=atof(strNameInd);
-   //free(strNameInd);
    lseek(fpa,(ind-1)*artSize,SEEK_SET);
    struct produto prd;
    int rdn=read(fpa,&prd,artSize); 
@@ -241,7 +245,7 @@ void changePrice(int fpa, char*input){
         }
       }
       else{
-        write(0,"Produto não válido\n",21);
+        write(0,"Preço não válido\n",21);
       }
     }
     else{
@@ -274,7 +278,7 @@ int maRun(){
 
  while(input[0]!='q'){
   
-  readnr=read(0,input,100);
+  readnr=readline(0,input);
  if(input[0]=='i'){ 
      addArtigo(fpArts,fpStrings,&input[2]);
  }

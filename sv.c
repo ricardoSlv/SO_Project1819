@@ -1,5 +1,6 @@
 #include "sv.h"
 #include <signal.h>
+#include <time.h>
 
 //3 args, s-sales,r- reposição de stock, i-info, c- price change(inativo);
 // to do existe e fore de stock e não existe ;
@@ -97,10 +98,16 @@ void runAg(){
    int fds = openSales();
    int fdsa=open("vendasAg.txt",O_RDWR|O_CREAT,0644);
    int fdinf=open("Infos.txt",O_RDWR|O_CREAT,0644);
+   time_t t;
+   time(&t);
+   //printf("current time is : %s\n",ctime(&t));
+   int fdagrfinal=open(ctime(&t),O_WRONLY|O_CREAT,0644);
+   //write(fdagrfinal,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",44);
    int rdstt=read(fdinf,&lastBag,4);
    if(rdstt==0){lastBag=0;}
    sz=lseek(fds,0,SEEK_END);
    lseek(fds,lastBag,SEEK_SET);
+   //lseek(fds,0,SEEK_SET);
    lseek(fdinf,0,SEEK_SET);
    write(fdinf,&sz,4);
 
@@ -110,12 +117,15 @@ void runAg(){
        puts("li 1");
         write(fdsa,&sale,12);
    }
-   close(fdsa);
+   lseek(fdsa,0,SEEK_SET);
 
    if(fork()==0){
-     dup2(fds,0);
+     dup2(fdsa,0);
+     dup2(fdagrfinal,1);
      execlp("./ag","./ag","vendasAg.txt",(char *) NULL);
    }
+   close(fdsa);
+
 }
 
 float Cached(int artNr,Cacheprc* prodlist){
