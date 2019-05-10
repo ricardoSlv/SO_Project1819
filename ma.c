@@ -74,10 +74,9 @@ void formatPrice(char* str,int size){
 static int addString(int fp,char* str){
   
   long tamanho=lseek(fp,0, SEEK_END);
-  
   write(fp,str,strlen(str));
   write(fp,"\n",1);
-
+  
   return tamanho;
 }
 
@@ -130,7 +129,7 @@ void seekPriceByte(int fpa,int ind){
 }
 
 void compactador(int fda,int fdstrings){
-    puts("compacting");
+    write(1,"Compacting\n",12);
     struct produto prod;
     char*name=malloc(80);
     int pointer=0;
@@ -142,7 +141,7 @@ void compactador(int fda,int fdstrings){
     while(read(fda,&prod,12)!=0){
       lseek(fdstrings,prod.namezone,SEEK_SET);
       readnr=readline(fdstrings,name);
-      printf("read %d, prodnamezone %d,name %s",readnr,prod.namezone,name);
+      //printf("read %d, prodnamezone %d,name %s",readnr,prod.namezone,name);
       write(fdstrings2,name,readnr);
       prod.namezone=pointer;
       lseek(fda,-12,SEEK_CUR);
@@ -181,10 +180,9 @@ char* seekNameOnFile(int fps,int nbyte){
 
 void changeName(int fpa,int fps,char* input){
     char*token;
-    
+
     token=strtok(input," ");
     int ind=atoi(token);
-    //int nb=seekNameByte(fpa,ind);
     //Não passar do fim
     if(checkValidProd(fpa,ind)){
     lseek(fpa,(ind-1)*(artSize),SEEK_SET);
@@ -193,7 +191,9 @@ void changeName(int fpa,int fps,char* input){
     read(fpa,&prd,artSize);
     printf("Antes:%d,%f,%d\n",prd.codigo,prd.price,prd.namezone);
     
-
+    char*temp=malloc(80);
+    lseek(fps,prd.namezone,SEEK_SET);
+    int newUseless=readline(fps,temp);
     token=strtok(NULL,"\n");
     int nr=addString(fps,token);
     lseek(fpa,-artSize,SEEK_CUR);
@@ -202,11 +202,33 @@ void changeName(int fpa,int fps,char* input){
     write(fpa,&prd,artSize);
     lseek(fpa,-artSize,SEEK_CUR);
     read(fpa,&prd,artSize);
-    printf("Depois:%d,%d,%f\n",prd.codigo,prd.namezone,prd.price);
+    printf("Depois:%d,%f,%d\n",prd.codigo,prd.price,prd.namezone);
+
+   int fdinf=open("Infos.txt",O_RDWR|O_CREAT,0644);
+   int uselessBy;
+   lseek(fdinf,4,SEEK_SET);
+   int rdstt=read(fdinf,&uselessBy,4);
+   if(rdstt==0){uselessBy=0;}
+   uselessBy=uselessBy+newUseless;
+   lseek(fps,0,SEEK_SET);
+   int sz=lseek(fps,0,SEEK_END);
+   lseek(fdinf,4,SEEK_SET);
+   
+   if((sz/uselessBy)<5){
+      uselessBy=0;
+      write(1,"20 percent wasted space reached, \n",35);
+      write(fdinf,&uselessBy,4);
+      compactador(fpa,fps);
+   }
+   else{
+     write(fdinf,&uselessBy,4);
+   }
+
     }
     else{
       write(0,"Produto não válido\n",21);
     }
+
 
 }
 
@@ -228,7 +250,7 @@ void changePrice(int fpa, char*input){
       float prc=atof(token);
       
       if(prc>0){
-        printf("preco=%s %f\n",token,prc);
+        //printf("preco=%s %f\n",token,prc);
         lseek(fpa,-artSize,SEEK_CUR);
         prd.price=prc;
     
@@ -274,7 +296,7 @@ int maRun(){
  int fpStrings=openStrings();
  char* input=malloc(sizeof(char)*100);
  int readnr;
- write(0,"Comando: i+nome+preço, n+art+newname, p+art+newprice\n",55);
+ write(0,"Comando: i+nome+preço, n+art+newname, p+art+newprice, a(agregador)\n",55);
 
  while(input[0]!='q'){
   
@@ -290,9 +312,6 @@ int maRun(){
  }
  else if (input[0]=='q'){
    write(0,"Quit input\n",12);
- }
- else if (input[0]=='c'){
-   compactador(fpArts, fpStrings);
  }
  else if (input[0]=='a'){
    sendAg();

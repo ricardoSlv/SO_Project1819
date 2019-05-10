@@ -100,14 +100,11 @@ void runAg(){
    int fdinf=open("Infos.txt",O_RDWR|O_CREAT,0644);
    time_t t;
    time(&t);
-   //printf("current time is : %s\n",ctime(&t));
    int fdagrfinal=open(ctime(&t),O_WRONLY|O_CREAT,0644);
-   //write(fdagrfinal,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",44);
    int rdstt=read(fdinf,&lastBag,4);
    if(rdstt==0){lastBag=0;}
    sz=lseek(fds,0,SEEK_END);
    lseek(fds,lastBag,SEEK_SET);
-   //lseek(fds,0,SEEK_SET);
    lseek(fdinf,0,SEEK_SET);
    write(fdinf,&sz,4);
 
