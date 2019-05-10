@@ -64,10 +64,8 @@ int main(int argc, char* argv[]){
      write(1,writing,sz);
     }
    }
+  
   remove("vendasAg.txt"); 
   remove("tempFileOfAgr");
-  
-
   return 0;
-
 }

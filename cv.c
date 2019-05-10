@@ -1,31 +1,6 @@
-#include "cv.h"
-#include <sys/wait.h>   /*chamadas wait*() e macros relacionadas*/
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>    /*O_RDONLY, O_WRONLY, O_CREAT, O_* */
-#include <math.h>
+#include "ModuloDados.h"
 
 char*PipeID;
-
-typedef struct  serverinfo
-{
-  char action;
-  int artNr;
-  int units;
-  int clientID;
-
-};
-
-typedef struct serveroutput{
-   
-   char runstat;
-   int stock;
-   float price;
-
-};
 
 //to do
 //Testar se abriu
@@ -79,7 +54,7 @@ void shutDownRun(){
    exit(1);
 }
 
-int cvRun(){
+int main(){
    
    signal(SIGPIPE,pipeBrokenRun);
    signal(SIGINT,shutDownRun);

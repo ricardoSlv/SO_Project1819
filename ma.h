@@ -1,21 +1,4 @@
-#include <unistd.h>     /*chamadas ao sistema: defs e decls essenciais*/
-#include <sys/wait.h>   /*chamadas wait*() e macros relacionadas*/
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>    /*O_RDONLY, O_WRONLY, O_CREAT, O_* */
-#include <math.h>
-
-#define artIndSize 6
-#define priceSize 7
-#define nameIndSize 8
-#define artSize 12 
-
-typedef struct produto Produto;
-
-int openArtigos();
+#include "ModuloDados.h"
 
 void formatStr(char* ,int,int);
 

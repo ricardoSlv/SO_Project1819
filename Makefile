@@ -1,17 +1,20 @@
 CFLAGS=-g
 LDFLAGS=-g
 
-exec: main.c ma.o cv.o sv.o testador ag
-	gcc -Wall -O2 -o exec main.c sv.o cv.o ma.o
+all : sv ma cv ag
+	make ma sv ag
 
-run: exec
-	./exec
+ma:ma.c ModuloDados.c ModuloDados.h
+	gcc -Wall -O2 -o ma ma.c ModuloDados.c ModuloDados.h
 
-ma.o: ma.h ma.c
+sv:sv.c ModuloDados.h ModuloDados.c
+	gcc -Wall -O2 -o sv sv.c ModuloDados.h ModuloDados.c
 
-sv.o:sv.c sv.h
+cv:cv.c ModuloDados.c ModuloDados.h
+	gcc -Wall -O2 -o cv cv.c ModuloDados.c ModuloDados.h
 
-cv.o:cv.c cv.h
+ag: ag.c ModuloDados.c ModuloDados.h
+	gcc -Wall -O2 -o ag ag.c ModuloDados.c ModuloDados.h
 
 testador:testador.c
 	gcc -O2 -o testador testador.c

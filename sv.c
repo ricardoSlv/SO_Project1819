@@ -1,33 +1,6 @@
-#include "sv.h"
-#include <signal.h>
-#include <time.h>
-
+#include "ModuloDados.h"
 //3 args, s-sales,r- reposição de stock, i-info, c- price change(inativo);
 // to do existe e fore de stock e não existe ;
-
-
-typedef struct  serverinfo
-{
-  char action;
-  int artNr;
-  int units;
-  int clientID;
-
-};
-
-typedef struct serveroutput{
-   
-   char runstat;
-   int stock;
-   float price;
-
-};
-
-typedef struct sale{
-  int artnr;
-  int units;
-  float price;
-}Venda;
 
 typedef struct artprc{
   int artnr;
@@ -54,28 +27,6 @@ int openPipeSv(char*pipeNr){
    mkfifo(pipeNr,0600);
     int fdpc=open(pipeNr,O_WRONLY);
     return fdpc;
-}
-
-char* getPipeID(int tme){
-
-    char*pipeID=malloc(8);
-    sprintf(pipeID,"%d",tme);
-  
-  return pipeID;
-}
-
-void printInfo(SvInfo* svinfo){
-
-  printf("Mode:%c, Art:%d, Units:%d, Client ID %d\n",svinfo->action,svinfo->artNr,svinfo->units,svinfo->clientID);
-}
-
-void printOut(SvOut* svout){
-
-  printf("Runstat:%c, Stock:%d, Price:%f\n",svout->runstat,svout->stock,svout->price);
-}
-
-void printSale(struct sale vnd){
-  printf("Art %d Units %d Price %.2f\n",vnd.artnr,vnd.units,vnd.price);
 }
 
 int getStockPointer(int fdstk,int artNr){
@@ -216,10 +167,12 @@ int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales,Cacheprc* prodlis
           if(readStatus==0){
             if(args.units<0){
                  out.runstat='e';
+                 
             }
                  
              else{
              out.runstat='s';
+             out.stock=args.units;
              getStockPointer(fdstk,args.artNr);
              write(fdstk,&args.units,4);
              }
@@ -251,6 +204,7 @@ int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales,Cacheprc* prodlis
      write(fdpc,&out,outSize);
      printOut(&out);
     }
+    return 0;
       
 }
 
@@ -262,7 +216,7 @@ int runInfo(int fpa, int fpstk,int fdpc,SvInfo args,Cacheprc* prodlist){
 
    int rd=read(fpstk,&stk,StockSize);
    
-   if (rd==0){stk==0;}
+   if (rd==0){stk=0;}
    
     prc=seekPrice(fpa,args.artNr,prodlist);
     
@@ -277,6 +231,7 @@ int runInfo(int fpa, int fpstk,int fdpc,SvInfo args,Cacheprc* prodlist){
 
     int w= write(fdpc,&out,outSize);
     printOut(&out);
+    return 0;
 }
 
 void ShutdownRun(){
@@ -285,7 +240,7 @@ void ShutdownRun(){
   exit(1);
 }
 
-int svRun(){
+int main(){
    
     signal(SIGINT,ShutdownRun);
     signal(SIGTERM,ShutdownRun);

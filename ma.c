@@ -1,38 +1,7 @@
-#include "ma.h"
+#include "ModuloDados.h"
 
 //To do:
 //Validar args
-
-struct produto{
-  int codigo;
-  float price;
-  int namezone;
-};
-
-typedef struct  serverinfo
-{
-  char action;
-  int artNr;
-  int units;
-  int clientID;
-
-};
-
-
-
-int readline(int fd,char*inpt){
-  char c='O';
-  int i;
-  for(i=0;c!='\n'&&read(fd,&c,1);i++){
-     inpt[i]=c;
-  }
-  inpt[i]='\0';
-  return i;
-}
-
-int openArtigos(){
-     return open("artigos.txt",O_RDWR|O_CREAT,0644);
-}
 
 int openStrings(){
     return open("strings.txt",O_RDWR|O_CREAT,0644);
@@ -159,17 +128,6 @@ void compactador(int fda,int fdstrings){
     remove("strings2.txt");
 }
 
-float getPrice(int fpa,int ind){
-   
-   lseek(fpa,(ind-1)*artSize,SEEK_SET);
-   struct produto prd;
-   int rdn=read(fpa,&prd,artSize); 
-   if (rdn==0){prd.price=-1;}
-   
-   //printf("%f\n",prd.price);
-  return prd.price;
-}
-
 //free?
 char* seekNameOnFile(int fps,int nbyte){
   lseek(fps,nbyte,SEEK_SET);
@@ -290,7 +248,7 @@ void sendAg(){
 }
 
 
-int maRun(){
+int main(){
 
  int fpArts=openArtigos();
  int fpStrings=openStrings();

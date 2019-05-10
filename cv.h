@@ -1,6 +1,3 @@
-#include "sv.h"
-#include <time.h>
-
-#define buffsize 110
+#include "ModuloDados.h"
 
 int cvRun();

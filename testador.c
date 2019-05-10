@@ -10,6 +10,7 @@ int main(int argc, char*argv[]){
   printf("Did not execute");
   }
   else if(argv[1][0]=='c'){
+  dup2(fdc,0);
   execlp("./exec","./exec","c",(char *) NULL);
   printf("Did not execute");
   }
