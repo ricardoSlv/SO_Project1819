@@ -1,7 +1,6 @@
 #include "ModuloDados.h"
 
-//To do:
-//Validar args
+
 
 int openStrings(){
     return open("strings.txt",O_RDWR|O_CREAT,0644);
@@ -11,6 +10,7 @@ int openStrings2(){
     return open("strings2.txt",O_RDWR|O_CREAT,0644);
 }
 
+//Produto existe nos artigos?
 int checkValidProd(int fda, int ind){
   lseek(fda,0,SEEK_SET);
   int size=lseek(fda,0,SEEK_END);
@@ -18,28 +18,7 @@ int checkValidProd(int fda, int ind){
   return ((ind-1)*artSize)<size ? 1:0;
 }
 
-void formatStr(char* str,int size,int nr){
- 
-  sprintf(str,"%d",nr);
-  int len=strlen(str);
-  strcpy(&str[size-len],str);
-  
-  for(int i=0;i<(size-len);i++){
-    str[i]='0';
-  }
-}
-
-void formatPrice(char* str,int size){
-
-  int len=strlen(str);
-  strcpy(&str[size-len],str);
-  
-  for(int i=0;i<(size-len);i++){
-    str[i]='0';
-  }
-}
-
-
+//Adiciona uma string ao strings, devolte o byte onde começou a escrita
 static int addString(int fp,char* str){
   
   long tamanho=lseek(fp,0, SEEK_END);
@@ -49,7 +28,7 @@ static int addString(int fp,char* str){
   return tamanho;
 }
 
-
+//Adiciona um artigo
 int addArtigo(int fpa,int fps,char*strinput){
   char*token;
   long tamanho=lseek(fpa,0, SEEK_END);
@@ -83,20 +62,7 @@ int addArtigo(int fpa,int fps,char*strinput){
 }
 
 
-
-//Atoi==0?
-int seekNameByte(int fpa,int ind){
-  lseek(fpa,(artSize*(ind-1)+artIndSize+priceSize+2),SEEK_SET);
-  char*strNameInd=malloc(sizeof(char)*nameIndSize);
-  //read(fpa,strNameInd,nameIndSize);
-  return atoi(strNameInd);
-}
-
-void seekPriceByte(int fpa,int ind){
-  lseek(fpa,(artSize*(ind-1)+artIndSize+1),SEEK_SET);
-  char*strNameInd=malloc(sizeof(char)*nameIndSize);
-}
-
+//Despoletado pela função de mudança de nome
 void compactador(int fda,int fdstrings){
     write(1,"Compacting\n",12);
     struct produto prod;
@@ -128,14 +94,9 @@ void compactador(int fda,int fdstrings){
     remove("strings2.txt");
 }
 
-//free?
-char* seekNameOnFile(int fps,int nbyte){
-  lseek(fps,nbyte,SEEK_SET);
-  char*name=malloc(100);
-  read(fps,name,100);
-  char*token=strtok(name,"\n");
-}
 
+//Mudança de nome, atualiza o nº de bytes inuteis no file de infos
+//Pode despoletar o compactador
 void changeName(int fpa,int fps,char* input){
     char*token;
 
@@ -186,15 +147,15 @@ void changeName(int fpa,int fps,char* input){
     else{
       write(0,"Produto não válido\n",21);
     }
-
-
 }
 
+//Mudança de preço nos file artigos
 void changePrice(int fpa, char*input){
   char*token;
     
   token=strtok(input," ");
   int ind=atoi(token);
+  printf("ind=%d\n",ind);
     
     if(checkValidProd(fpa,ind)){
       lseek(fpa,(ind-1)*(artSize),SEEK_SET);
@@ -228,11 +189,14 @@ void changePrice(int fpa, char*input){
         write(0,"Preço não válido\n",21);
       }
     }
-    else{
+     else{
       write(0,"Produto não válido\n",21);
-    }
+   }
 }
 
+
+//Tenta abrir o sever pipe, não corre o risco de bloqueio se o servidor executar
+//correctamente, isto é, remover o serverpipe á saida
 void sendAg(){
    int fdpp=open("serverPipe",O_WRONLY);
         if(fdpp>0){
@@ -259,26 +223,26 @@ int main(){
  while(input[0]!='q'){
   
   readnr=readline(0,input);
- if(input[0]=='i'){ 
-     addArtigo(fpArts,fpStrings,&input[2]);
- }
- else if(input[0]=='n'){
- changeName(fpArts,fpStrings,&input[2]);
- }
- else if(input[0]=='p'){
- changePrice(fpArts,&input[2]);
- }
- else if (input[0]=='q'){
-   write(0,"Quit input\n",12);
- }
- else if (input[0]=='a'){
-   sendAg();
- }
- else{
-   write(0,"Input inválido\n",17);
- }
+  if(input[0]=='i'){ 
+      addArtigo(fpArts,fpStrings,&input[2]);
+  }
+  else if(input[0]=='n'){
+     changeName(fpArts,fpStrings,&input[2]);
+  }
+  else if(input[0]=='p'){
+     changePrice(fpArts,&input[2]);
+  }
+  else if (input[0]=='q'){
+     write(0,"Quit input\n",12);
+  }
+  else if (input[0]=='a'){
+     sendAg();
+  }
+  else{
+     write(0,"Input inválido\n",17);
+  } 
  }
 
  free(input);
  return 0;
- }
+}

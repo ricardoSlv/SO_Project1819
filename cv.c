@@ -13,7 +13,7 @@ int openPipeCv(char*pipeNr){
     return fdpc;
 }
 
-
+//Preenche uma struct de info com o input
 int fillInfo(struct serverinfo* svinfo,char*input){
   //printf("input->%s<-",input);
   int sz=strlen(input);
@@ -41,13 +41,20 @@ int fillInfo(struct serverinfo* svinfo,char*input){
   //printf("filinfo returning %d \n",r);
   return r;
 }
+void formatOutput(char*strS,char*strP,char*output){
+  output[0]='i';
+  strcpy(&output[1],strS);
+  strcpy(&output[1+StockSize-1],strP);
+}
 
+//Tratamento de SIGPIPE, o servidor desliga durante um contacto com um cliente
 void pipeBrokenRun(){
    write(1,"Pipe Broken, server may have exited, shutting down\n",52);
    remove(PipeID);
    exit(1);
 }
 
+//Saída limpa
 void shutDownRun(){
    write(1,"Shutting down\n",52);
    remove(PipeID);

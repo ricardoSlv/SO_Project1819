@@ -34,17 +34,16 @@ int getStockPointer(int fdstk,int artNr){
    lseek(fdstk,offset,SEEK_SET);
 }
 
-void sendOutPut(char* pipeStr, char*output){
-  int CvPipefd=openPipeSv(pipeStr);
-  
-  write(CvPipefd,output,outSize);    
-
-}
-
+//File infos->ultimo byte agregado
+//Abre sale file e copia desde lastBag até EOF para vendasAg
+//Abre o ficheiro para output com nome=data
+//Stdin=vendasAg Stdout=Fileoutput
+//Fork->Exec->Wait
+//Remove vendasAg
 void runAg(){
    
    Venda sale;
-   char*stringsale=malloc(40);
+   //char*stringsale=malloc(40);
    int sz;int lastBag;
    int fds = openSales();
    int fdsa=open("vendasAg.txt",O_RDWR|O_CREAT,0644);
@@ -52,42 +51,84 @@ void runAg(){
    time_t t;
    time(&t);
    int fdagrfinal=open(ctime(&t),O_WRONLY|O_CREAT,0644);
+   //int fdagrmed=open("intermedAgr",O_RDWR|O_CREAT,0644);
    int rdstt=read(fdinf,&lastBag,4);
    if(rdstt==0){lastBag=0;}
    sz=lseek(fds,0,SEEK_END);
    lseek(fds,lastBag,SEEK_SET);
    lseek(fdinf,0,SEEK_SET);
    write(fdinf,&sz,4);
+   //int agBytes = (sz-lastBag)/12;
+   //int agSize = agBytes/nthreads;
+   //printf("lastbag->%d, size->%d, agsize->%d\n",lastBag,sz,agSize);
 
 
    while(read(fds,&sale,12)!=0){
-       printSale(sale);
-       puts("li 1");
+       //printSale(sale);
+       //puts("li 1");
         write(fdsa,&sale,12);
    }
    lseek(fdsa,0,SEEK_SET);
+   
+   if(fork()==0){
+      dup2(fdsa,0);
+      dup2(fdagrfinal,1);
+      execlp("./ag","./ag",(char *) NULL);
+    }
+    
+   
+   /* Tentativa de agregação concorrente
+   char*agsize=malloc(12);
+   for(int i=1;i<=4;i++){
+    printf("lancei o %d\n",i);
+    if(fork()==0){
+      lseek(fdagrmed,(i-1)*salesize,SEEK_SET);
+      dup2(fdsa,0);
+      //dup2(fdagrmed,1);
+      if(i==4){agSize=agBytes-3*agSize;}
+      sprintf(agsize,"%d",agSize);
+      execlp("./ag","./ag",agsize,"b",(char *) NULL);
+    }
+    if(i!=4){lseek(fdsa,agSize,SEEK_CUR);}
+   }
+   
+   int stt;
+   for(int i=1;i<=4;i++){wait(&stt);printf("caçei o %d\n",i);}
 
    if(fork()==0){
-     dup2(fdsa,0);
-     dup2(fdagrfinal,1);
-     execlp("./ag","./ag","vendasAg.txt",(char *) NULL);
-   }
+      lseek(fdagrmed,0,SEEK_SET);
+      int sze=lseek(fdagrmed,0,SEEK_SET);
+      lseek(fdagrmed,0,SEEK_SET);
+      dup2(fdagrmed,0);
+      dup2(fdagrfinal,1);
+      sprintf(agsize,"%d",sze);
+      execlp("./ag","./ag",agsize,"t",(char *) NULL);
+    }
+    wait(&stt);
+    printf("caçei o ultimo stt=%d\n",stt);
+  */
+   int stt;
+   wait(&stt);
    close(fdsa);
+   remove("vendasAg.txt");
+   //remove("intermedAgr");
 
 }
 
+//Procura um preço na cache
 float Cached(int artNr,Cacheprc* prodlist){
     float r=0;
-    puts("searching cache");
+    //puts("searching cache");
     for(int i=0;i<20;i++){
        if(prodlist->prices[i].artnr==artNr){
          r=prodlist->prices[i].prc;
-         printf("cached r=%f\n",r);
+         //printf("cached r=%f\n",r);
          break;
        }
     }
    return r; 
 }
+
 
 void cacheAdd(ArtPrc prd,Cacheprc* prodlist){
   
@@ -95,6 +136,8 @@ void cacheAdd(ArtPrc prd,Cacheprc* prodlist){
   prodlist->ind=(prodlist->ind+1)%cacheSz;
 }
 
+//Procura um preço na cache, se não encontrar procura no ficheiro de artigos
+//Se encontrar adiciona o preço á cache, se não devolve -1
 float seekPrice(int fpa,int artNr,Cacheprc* prodlist){
     float prc;
     float cached=Cached(artNr,prodlist);
@@ -116,6 +159,7 @@ float seekPrice(int fpa,int artNr,Cacheprc* prodlist){
     
 }
 
+//Altera um preço na cache
 void updatePrice(int fpa,Cacheprc* prodlist, SvInfo args){
    float prc=getPrice(fpa,args.artNr);
    for (int i=0;i<cacheSz;i++){
@@ -127,12 +171,7 @@ void updatePrice(int fpa,Cacheprc* prodlist, SvInfo args){
 }
 
 
-void formatOutput(char*strS,char*strP,char*output){
-  output[0]='i';
-  strcpy(&output[1],strS);
-  strcpy(&output[1+StockSize-1],strP);
-}
-
+//Escreve um venda no ficheiro de vendasd
 void saleWrite(int fda,int fdsales,SvInfo args){
     
     struct sale venda;
@@ -151,8 +190,8 @@ int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales,Cacheprc* prodlis
     int readStatus;
     SvOut out;
     //puts("running sale");
-
-    if(seekPrice(fda,args.artNr,prodlist)<=0){
+    float prc=seekPrice(fda,args.artNr,prodlist);
+    if(prc<=0){
       out.runstat='e';
       write(fdpc,&out,outSize);
       return 0;
@@ -173,6 +212,7 @@ int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales,Cacheprc* prodlis
              else{
              out.runstat='s';
              out.stock=args.units;
+             out.price=prc;
              getStockPointer(fdstk,args.artNr);
              write(fdstk,&args.units,4);
              }
@@ -187,6 +227,7 @@ int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales,Cacheprc* prodlis
 
              saleWrite(fda,fdsales,args);
              out.runstat='s';
+             out.price=prc;
             
              uniCurr=uniCurr+args.units;
              getStockPointer(fdstk,args.artNr);
@@ -208,6 +249,7 @@ int runSale(SvInfo args,int fdstk,int fdpc,int fda,int fdsales,Cacheprc* prodlis
       
 }
 
+//Procura e devolve a informação sobre um artigo
 int runInfo(int fpa, int fpstk,int fdpc,SvInfo args,Cacheprc* prodlist){
    SvOut out;
    getStockPointer(fpstk,args.artNr);
@@ -234,6 +276,7 @@ int runInfo(int fpa, int fpstk,int fdpc,SvInfo args,Cacheprc* prodlist){
     return 0;
 }
 
+//Tratamento de sinal
 void ShutdownRun(){
   remove("serverPipe");
   puts("exiting");

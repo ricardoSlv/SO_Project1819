@@ -1,6 +1,7 @@
 #include <sys/wait.h>  
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,9 +10,6 @@
 #include <time.h>
 #include <signal.h>
 
-#define artIndSize 6
-#define priceSize 7
-#define nameIndSize 8
 #define artSize 12 
 #define StockSize 4
 #define PipeIndSize 7
@@ -19,6 +17,8 @@
 #define infoSize 16
 #define cacheSz 20
 #define buffsize 110
+#define nthreads 4
+#define salesize 12
 
 struct produto{
   int codigo;

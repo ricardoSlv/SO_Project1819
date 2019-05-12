@@ -1,27 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <math.h>
-#include <sys/wait.h>   /*chamadas wait*() e macros relacionadas*/
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>    /*O_RDONLY, O_WRONLY, O_CREAT, O_* */
-#include <math.h>
+#include "ModuloDados.h"
 
-typedef struct sale{
-  int artnr;
-  int units;
-  float price;
-}Venda;
-
-void printSale(Venda sale){
-  printf("Art %d Units %d Price %.2f\n",sale.artnr,sale.units,sale.price);
-}
+//Parte de concorrência
+//argv[1]=nº de vendas a agregar
+//argv[2]=mode b || t (binary,text)
 
 int main(int argc, char* argv[]){
+ 
    
    int fdagrtemp=open("tempFileOfAgr",O_RDWR|O_CREAT,0644);
    
@@ -65,7 +49,6 @@ int main(int argc, char* argv[]){
     }
    }
   
-  remove("vendasAg.txt"); 
   remove("tempFileOfAgr");
   return 0;
 }
